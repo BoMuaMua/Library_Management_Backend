@@ -1,0 +1,46 @@
+server:
+  port: 8800
+spring:
+  application:
+    name: library
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+
+      discovery:
+        server-addr: 114.132.92.175:8848
+        namespace: ${spring.profiles.active}
+      config:
+        server-addr: 114.132.92.175:8848
+        namespace: ${spring.profiles.active}
+        import-check:
+          enabled: false
+    sentinel:
+      transport:
+        dashboard: ${data.sentinel.dashboard.url}
+logging:
+  level:
+    org.springframework.security: DEBUG
+
+nacos:
+  logging:
+    default:
+      config:
+        enabled: false
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+    import:
+      - optional:nacos:library.yml
+
+---
+spring:
+  config:
+    activate:
+      on-profile: product
+    import:
+      - optional:nacos:library.yml
