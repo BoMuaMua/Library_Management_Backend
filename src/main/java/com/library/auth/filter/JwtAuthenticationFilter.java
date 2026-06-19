@@ -148,8 +148,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         redisTemplate.opsForValue().set(blackListKey, "1", remainingTime, TimeUnit.SECONDS);
                     }
 
-                    // 将当前时间作为最后登录时间
-                    systemUsersMapper.setLastLoginTime(authService.setLastLoginTime(), Long.valueOf(studentNumToRefresh));
+
+
 
                     // 将新 token 放入响应头，告知客户端更新
                     response.setHeader("Authorization", "Bearer " + newAccessToken);

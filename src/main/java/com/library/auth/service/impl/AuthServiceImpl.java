@@ -18,10 +18,7 @@ import java.time.LocalDateTime;
 
 @Service
 public class AuthServiceImpl implements AuthService {
-    @Autowired
-    private SystemUsersService systemUsersService;
-    @Autowired
-    private SystemUsersMapper  systemUsersMapper;
+
 
     @Autowired
     private JwtUtils jwtUtils;
@@ -76,8 +73,6 @@ public class AuthServiceImpl implements AuthService {
         //获取Token
         String accessToken = jwtUtils.createAccessToken(studentNum.toString(),users.getRole());
 
-        //将当前登录时间当做最后登录时间
-        systemUsersMapper.setLastLoginTime(setLastLoginTime(), studentNum);
         return accessToken;
     }
 
