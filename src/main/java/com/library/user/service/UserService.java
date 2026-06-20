@@ -1,6 +1,7 @@
 package com.library.user.service;
 
 import com.library.user.entity.User;
+import com.library.user.entity.vo.UserNewVO;
 import com.library.user.entity.vo.UserQueryVO;
 import gaarason.database.appointment.Paginate;
 
@@ -10,4 +11,14 @@ public interface UserService {
 
 
     Paginate<User> getUserList(Integer page, Integer pageSize);
+
+    /**
+     * 根据学号获取用户的角色权限代码
+     *
+     * @param studentNum 学号
+     * @return 角色权限代码 sys_role_code
+     */
+    String getSysRoleCodeByStudentNum(String studentNum);
+
+    Boolean newUser(UserNewVO userNewVO);
 }

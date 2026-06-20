@@ -1,34 +1,52 @@
 package com.library.user.model;
 
-
-
 import com.library.user.entity.User;
 import gaarason.database.contract.connection.GaarasonDataSource;
 import gaarason.database.contract.eloquent.Builder;
 import gaarason.database.eloquent.Model;
-import jakarta.annotation.Resource;
+import gaarason.database.query.QueryBuilder;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
 @Component
-public class UserModel extends Model<UserQuery, User, Integer> {
+public class UserModel extends Model<QueryBuilder<User,Integer>, User, Integer> {
 
-    @Resource
+    private static ApplicationContext applicationContext;
     private GaarasonDataSource gaarasonDataSource;
 
-    /**
-     * 快捷查询方法：返回值也完美对齐为 Builder<User, Integer, ?>
-     */
-    public UserQuery baseQuery() {
-        // 这样写，类型安全，where 绝对能认出来，并且在 Service 里点出来的 where、orderBy 都有完整的 User 字段语法提示！
+    public UserModel() {
+    }
+
+    @Autowired
+    public void setApplicationContext(ApplicationContext context) {
+        UserModel.applicationContext = context;
+    }
+
+    @Autowired(required = false)
+    public void setGaarasonDataSource(GaarasonDataSource gaarasonDataSource) {
+        this.gaarasonDataSource = gaarasonDataSource;
+    }
+
+    public Builder<?, User, Integer> baseQuery() {
         return this.newQuery().where("is_deleted", 0);
     }
 
-    /**
-     * 实现父类的方法：直接注入并返回 Spring 容器中的数据源，不要返回 null
-     */
     @Override
     public GaarasonDataSource getGaarasonDataSource() {
-        return gaarasonDataSource;
+        if (gaarasonDataSource != null) {
+            return gaarasonDataSource;
+        }
+        
+        if (applicationContext != null) {
+            try {
+                gaarasonDataSource = applicationContext.getBean(GaarasonDataSource.class);
+                return gaarasonDataSource;
+            } catch (Exception e) {
+                System.err.println("警告: 无法找到 GaarasonDataSource Bean");
+            }
+        }
+        
+        return null;
     }
-
 }

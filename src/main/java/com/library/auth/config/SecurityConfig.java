@@ -17,6 +17,7 @@ package com.library.auth.config;
 import com.library.auth.filter.JwtAuthenticationFilter;
 import com.library.auth.service.AuthService;
 import com.library.auth.util.JwtUtils;
+import com.library.user.model.UserModel;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -87,15 +88,17 @@ public class SecurityConfig {
                         })
 
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                // TODO: 临时关闭权限验证 - 注释掉 JWT 过滤器注册
+                // .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        ;
 
         return http.build();
     }
 
     @Bean
-    public JwtAuthenticationFilter jwtAuthenticationFilter(JwtUtils jwtUtils, StringRedisTemplate redisTemplate, SystemUsersMapper systemUsersMapper, AuthService authService) {
+    public JwtAuthenticationFilter jwtAuthenticationFilter(JwtUtils jwtUtils, StringRedisTemplate redisTemplate, UserModel userModel, AuthService authService) {
         // 这里手动传入依赖，保证 Filter 启动时依赖已经准备就绪
-        return new JwtAuthenticationFilter(jwtUtils, redisTemplate, systemUsersMapper, authService);
+        return new JwtAuthenticationFilter(jwtUtils, redisTemplate, userModel, authService);
     }
 //TODO 这里需要修改
 }

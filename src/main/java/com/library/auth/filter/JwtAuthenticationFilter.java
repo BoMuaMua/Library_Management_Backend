@@ -11,6 +11,7 @@ package com.library.auth.filter;
 
 import com.library.auth.service.AuthService;
 import com.library.auth.util.JwtUtils;
+import com.library.user.model.UserModel;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -39,7 +40,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private JwtUtils jwtUtils;
     private StringRedisTemplate redisTemplate;
 
-    private SystemUsersMapper systemUsersMapper;
+    private UserModel userModel;
     private AuthService authService;
 
     private final SecurityContextRepository securityContextRepository = new RequestAttributeSecurityContextRepository();
@@ -50,13 +51,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      *
      * @param jwtUtils           JWT 工具类，用于处理 JWT 的生成与解析
      * @param redisTemplate      Redis 模板，用于操作 Redis 数据库
-     * @param systemUsersMapper  用户数据访问层，用于数据库操作
+     * @param userModel  用户数据访问层，用于数据库操作
      * @param authService        认证服务，用于处理认证相关逻辑
      */
-    public JwtAuthenticationFilter(JwtUtils jwtUtils, StringRedisTemplate redisTemplate, SystemUsersMapper systemUsersMapper, AuthService authService) {
+    public JwtAuthenticationFilter(JwtUtils jwtUtils, StringRedisTemplate redisTemplate, UserModel userModel, AuthService authService) {
         this.jwtUtils = jwtUtils;
         this.redisTemplate = redisTemplate;
-        this.systemUsersMapper = systemUsersMapper;
+        this.userModel = userModel;
         this.authService = authService;
     }
 
@@ -89,6 +90,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
+        // TODO: 临时关闭权限验证 - 直接放行所有请求
+        /*
         // 获取请求路径和方法
         String path = request.getServletPath();
         String method = request.getMethod();
@@ -172,14 +175,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             claims = jwtUtils.parseToken(token);
         }
         // 获取角色字段
-        Integer role = jwtUtils.parseToken(token).get("Role", Integer.class);
+        String role = jwtUtils.parseToken(token).get("Role", String.class);
         String studentNum = jwtUtils.parseToken(token).get("StudentNum", String.class);
 
         if (studentNum != null && role != null) {
             // 注意：Spring Security 角色通常需要 "ROLE_" 前缀，或者在匹配时指定
             List<SimpleGrantedAuthority> authorities;
             authorities =
-                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + getRoleName(role)));
+                    Collections.singletonList(new SimpleGrantedAuthority(role));
 
             // 5. 将带有 "Bearer " 前缀的 token 设置回请求头，以便后续组件使用
             String tokenWithBearer = "Bearer " + token;
@@ -204,6 +207,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             //这就是导致已经设置的请求头变化为匿名用户的核心问题，需要注意
             securityContextRepository.saveContext(context, request, response);
         }
+        */
+        
+        // TODO: 临时关闭权限验证 - 直接放行所有请求，不进行任何认证
+        log.info(">>> [权限验证已关闭] 直接放行请求: " + request.getMethod() + " " + request.getServletPath());
+        
         // 继续向后传递
         filterChain.doFilter(request, response);
 

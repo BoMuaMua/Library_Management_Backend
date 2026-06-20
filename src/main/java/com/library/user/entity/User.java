@@ -4,10 +4,17 @@ import gaarason.database.annotation.Column;
 import gaarason.database.annotation.Primary;
 import gaarason.database.annotation.Table;
 import gaarason.database.contract.eloquent.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.Date;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 @Table(name = "user")
 public class User implements Serializable{
 
@@ -35,7 +42,7 @@ public class User implements Serializable{
     private Integer isDeleted;
 
     @Column(name = "create_time")
-    private Date createTime;
+    private LocalDateTime createTime;
 
     // 快捷生成所有的 Getters / Setters...
 }

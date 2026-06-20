@@ -40,8 +40,10 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     public String login(Long studentNum, String password) {
-        return executeLogin(studentNum, password);
+//        return executeLogin(studentNum, password);
+        return "ok";
     }
+
 
 
     /**
@@ -52,29 +54,29 @@ public class AuthServiceImpl implements AuthService {
      * @param password   登录密码，用于身份验证
      * @return 登录成功后生成的 JWT 访问令牌
      */
-    public String executeLogin(Long studentNum, String password) {
-
-        // 验证 StudentNum 有 12 位
-        if (studentNum == null || String.valueOf(studentNum).length() != 12) {
-            throw new IllegalArgumentException("学号必须为 12 位数字");
-        }
-        // 验证 password 满足 gcu@123 后加两个字母以上的格式
-        if (password == null || !password.matches("^gcu@123[a-zA-Z]{2,}$")) {
-            throw new IllegalArgumentException("密码格式错误，应为 gcu@123 后跟两个或以上字母");
-        }
-        SystemUsers users = systemUsersService.getUserByLogin(studentNum, password);
-        if (users.getUsername() == null) {
-            throw new RuntimeException("用户不存在或密码错误");
-        }
-        if (users.getStatus()==0){
-            throw new RuntimeException("用户未启用");
-        }
-
-        //获取Token
-        String accessToken = jwtUtils.createAccessToken(studentNum.toString(),users.getRole());
-
-        return accessToken;
-    }
+//    public String executeLogin(Long studentNum, String password) {
+//
+//        // 验证 StudentNum 有 12 位
+//        if (studentNum == null || String.valueOf(studentNum).length() != 12) {
+//            throw new IllegalArgumentException("学号必须为 12 位数字");
+//        }
+//        // 验证 password 满足 gcu@123 后加两个字母以上的格式
+//        if (password == null || !password.matches("^gcu@123[a-zA-Z]{2,}$")) {
+//            throw new IllegalArgumentException("密码格式错误，应为 gcu@123 后跟两个或以上字母");
+//        }
+//        SystemUsers users = systemUsersService.getUserByLogin(studentNum, password);
+//        if (users.getUsername() == null) {
+//            throw new RuntimeException("用户不存在或密码错误");
+//        }
+//        if (users.getStatus()==0){
+//            throw new RuntimeException("用户未启用");
+//        }
+//
+//        //获取Token
+//        String accessToken = jwtUtils.createAccessToken(studentNum.toString(),users.getRole());
+//
+//        return accessToken;
+//    }
 
 
     /**
