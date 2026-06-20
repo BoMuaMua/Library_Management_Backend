@@ -78,7 +78,7 @@ public class UserController {
      *
      * */
     @PostMapping("/delete")
-    public Result delete(@RequestBody Integer userId){
+    public Result delete(@RequestParam Integer userId){
         return userService.deleteAccount(userId) ? Result.success("成功") : Result.error(500, "失败");
     }
 }
