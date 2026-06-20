@@ -15,10 +15,17 @@ public interface UserService {
     /**
      * 根据学号获取用户的角色权限代码
      *
-     * @param studentNum 学号
+     * @param userId 学号
      * @return 角色权限代码 sys_role_code
      */
-    String getSysRoleCodeByStudentNum(String studentNum);
+    String getSysRoleCodeByUserId(String userId);
 
     Boolean newUser(UserNewVO userNewVO);
+
+    Boolean lostAccount(Integer userId);
+
+    Boolean deleteAccount(Integer userId);
+
+    User getUserInfo(String userId);
+
 }

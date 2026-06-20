@@ -31,28 +31,54 @@ public class UserController {
 
     @PostMapping("/new")
     public Result newUser(@RequestBody UserNewVO userNewVO) {
-        if(userService.newUser(userNewVO)){
-            return Result.success("注册成功");
-        }else {
-            return Result.error(500, "用户已存在");
-        }
-
+        return userService.newUser(userNewVO) ? Result.success("注册成功") : Result.error(500, "注册失败，该用户已存在");
     }
 
     /**
      * 获取当前用户的角色权限代码
      *
-     * @param studentNum 学号（从 JWT Token 中获取）
+     * @param userId 学号（从 JWT Token 中获取）
      * @return 角色权限代码 sys_role_code
      */
     @GetMapping("/role")
-    public Result getSysRoleCode(@RequestParam String studentNum) {
-        String sysRoleCode = userService.getSysRoleCodeByStudentNum(studentNum);
+    public Result getSysRoleCode(@RequestParam String userId) {
+        String sysRoleCode = userService.getSysRoleCodeByUserId(userId);
         
         if (sysRoleCode == null) {
             return Result.error(404, "用户不存在或未分配角色权限");
         }
         
         return Result.success(sysRoleCode);
+    }
+    
+    @GetMapping("/info")
+    public Result getUserInfo(@RequestParam String userId) {
+        User user = userService.getUserInfo(userId);
+        
+        if (user == null) {
+            return Result.error(404, "用户不存在");
+        }
+        
+        return Result.success(user);
+    }
+
+    /**
+     * 挂失读者
+     * @param userId 用户ID
+     *
+     * */
+    @PutMapping("/lost")
+    public Result lostAccount(@RequestParam Integer userId){
+        return userService.lostAccount(userId) ? Result.success("成功") : Result.error(500, "失败");
+    }
+
+    /**
+     * 注销用户
+     * @param userId 用户ID
+     *
+     * */
+    @PostMapping("/delete")
+    public Result delete(@RequestBody Integer userId){
+        return userService.deleteAccount(userId) ? Result.success("成功") : Result.error(500, "失败");
     }
 }

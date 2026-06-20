@@ -35,10 +35,10 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public String getSysRoleCodeByStudentNum(String studentNum) {
+    public String getSysRoleCodeByUserId(String userId) {
         // 1. 根据学号查询用户信息，获取 Record 对象
         var record = userModel.baseQuery()
-                .where("sys_role_code", studentNum)
+                .where("sys_role_code", userId)
                 .limit(1)
                 .first();
 
@@ -76,5 +76,32 @@ public class UserServiceImpl implements UserService {
 
 
         return rows > 0;
+    }
+
+    @Override
+    public Boolean lostAccount(Integer userId) {
+        int rows = userModel.newQuery()
+                .where("user_id", userId)
+                .data("status", 3)
+                .update();
+        return rows > 0;
+    }
+
+    @Override
+    public Boolean deleteAccount(Integer userId) {
+        int rows = userModel.newQuery()
+                .where("user_id", userId)
+                .data("is_deleted", 1)
+                .update();
+        return rows > 0;
+    }
+
+    @Override
+    public User getUserInfo(String userId) {
+        return userModel.newQuery()
+                .where("user_id", userId)
+                .limit(1)
+                .firstOrFail()
+                .getEntity();
     }
 }
