@@ -58,4 +58,48 @@ public interface BorrowService {
                                                String bookName, String userName,
                                                String userCode, String phone,
                                                Integer paymentStatus);
+
+    /**
+     * 借阅图书
+     * 生成借阅记录，同时book表中的总借阅次数加一
+     * 
+     * @param userId 用户ID
+     * @param locationId 馆藏位置ID
+     * @return 是否借阅成功
+     */
+    Boolean borrowBook(Integer userId, Integer locationId);
+
+    /**
+     * 查看自己已借阅的图书（借阅记录）
+     * 可按状态筛选
+     * 
+     * @param userId 用户ID
+     * @param borrowStatus 借阅状态（可选）0-借阅中, 1-已还, 2-逾期未还
+     * @return 借阅记录列表
+     */
+    java.util.List<BorrowRecordVO> getMyBorrowedBooks(Integer userId, Integer borrowStatus);
+
+    /**
+     * 归还图书
+     * 
+     * @param borrowId 借阅记录ID
+     * @return 是否归还成功
+     */
+    Boolean returnBook(Integer borrowId);
+
+    /**
+     * 续借图书
+     * 
+     * @param borrowId 借阅记录ID
+     * @return 是否续借成功
+     */
+    Boolean renewBook(Integer borrowId);
+
+    /**
+     * 查看图书逾期应缴纳罚款
+     * 
+     * @param borrowId 借阅记录ID
+     * @return 罚金金额，如果没有罚金返回null
+     */
+    java.math.BigDecimal getFineAmount(Integer borrowId);
 }

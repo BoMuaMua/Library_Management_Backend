@@ -5,7 +5,9 @@ import com.library.borrow.entity.BorrowingRecord;
 import com.library.borrow.model.BookLocationModel;
 import com.library.borrow.model.BorrowingRecordModel;
 import com.library.borrow.service.BorrowService;
+import com.library.book.model.BookModel;
 import com.library.user.model.UserModel;
+import com.library.util.RedisUtils;
 import gaarason.database.appointment.Paginate;
 import gaarason.database.contract.connection.GaarasonDataSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +22,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.math.BigDecimal;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 借阅服务实现类
@@ -35,6 +38,19 @@ public class BorrowServiceImpl implements BorrowService {
 
     @Autowired
     private UserModel userModel;
+
+    @Autowired
+    private BookModel bookModel;
+    
+    @Autowired
+    private RedisUtils redisUtils;
+    
+    // Redis键前缀
+    private static final String BORROW_RECORD_CACHE_PREFIX = "borrow:record:id:";
+    private static final String MY_BORROW_CACHE_PREFIX = "borrow:my:user:";
+    private static final String FINE_CACHE_PREFIX = "borrow:fine:id:";
+    private static final long CACHE_EXPIRE_TIME = 30; // 缓存过期时间（分钟）
+
 
     /**
      * 查询借阅记录列表（分页）
@@ -322,6 +338,355 @@ public class BorrowServiceImpl implements BorrowService {
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException("查询罚款记录失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 借阅图书
+     * 生成借阅记录，同时book表中的总借阅次数加一
+     */
+    @Override
+    public Boolean borrowBook(Integer userId, Integer locationId) {
+        // 参数校验
+        if (userId == null || locationId == null) {
+            return false;
+        }
+
+        // 检查用户是否存在
+        var userRecord = userModel.baseQuery()
+                .where("user_id", userId)
+                .limit(1)
+                .first();
+        if (userRecord == null) {
+            return false;
+        }
+
+        // 检查馆藏位置是否存在
+        var locationRecord = bookLocationModel.baseQuery()
+                .where("location_id", locationId)
+                .limit(1)
+                .first();
+        if (locationRecord == null) {
+            return false;
+        }
+
+        // 获取对应的book_id
+        Integer bookId = locationRecord.getEntity().getBookId();
+
+        // 创建借阅记录
+        BorrowingRecord record = new BorrowingRecord();
+        record.setUserId(userId);
+        record.setLocationId(locationId);
+        record.setBorrowTime(LocalDateTime.now());
+        record.setDueReturnTime(LocalDateTime.now().plusDays(30)); // 默认30天借阅期
+        record.setBorrowStatus(0); // 0-借阅中
+        record.setPaymentStatus(0); // 0-无需支付/已支付
+        record.setPenalty(BigDecimal.ZERO);
+
+        int rows = borrowingRecordModel.newQuery().data(record).insert();
+        if (rows <= 0) {
+            return false;
+        }
+
+        // 更新book表的总借阅次数加一
+        // 先查询当前的总借阅次数
+        var bookRecord = bookModel.baseQuery()
+                .where("book_id", bookId)
+                .limit(1)
+                .first();
+        
+        if (bookRecord != null) {
+            com.library.book.entity.Book book = bookRecord.getEntity();
+            Long currentCount = book.getTotalBorrowingTime();
+            if (currentCount == null) {
+                currentCount = 0L;
+            }
+            
+            // 更新总借阅次数
+            bookModel.newQuery()
+                    .where("book_id", bookId)
+                    .data("total_borrowing_time", currentCount + 1)
+                    .update();
+            
+            // 清除图书相关缓存
+            redisUtils.delete("book:id:" + bookId);
+        }
+
+        return true;
+    }
+
+    /**
+     * 查看自己已借阅的图书（借阅记录）
+     * 可按状态筛选
+     */
+    @Override
+    public java.util.List<BorrowRecordVO> getMyBorrowedBooks(Integer userId, Integer borrowStatus) {
+        if (userId == null) {
+            return new ArrayList<>();
+        }
+
+        // 构建缓存key
+        String cacheKey = MY_BORROW_CACHE_PREFIX + userId + ":status:" + (borrowStatus != null ? borrowStatus : "all");
+        
+        // 先从Redis缓存中获取
+        Object cached = redisUtils.get(cacheKey);
+        if (cached instanceof List) {
+            return (List<BorrowRecordVO>) cached;
+        }
+
+        // 构建SQL查询
+        StringBuilder sql = new StringBuilder();
+        List<Object> params = new ArrayList<>();
+
+        sql.append("SELECT br.borrow_id, br.location_id, bl.book_id, br.user_id, ");
+        sql.append("u.nickname, u.user_code, ");
+        sql.append("b.title as book_title, ");
+        sql.append("br.borrow_time, br.due_return_time, br.actual_return_time, ");
+        sql.append("br.penalty, br.borrow_status, br.payment_status ");
+        sql.append("FROM borrowing_record br ");
+        sql.append("LEFT JOIN book_location bl ON br.location_id = bl.location_id ");
+        sql.append("LEFT JOIN user u ON br.user_id = u.user_id ");
+        sql.append("LEFT JOIN book b ON bl.book_id = b.book_id ");
+        sql.append("WHERE br.user_id = ? ");
+        params.add(userId);
+
+        // 添加状态筛选
+        if (borrowStatus != null) {
+            sql.append("AND br.borrow_status = ? ");
+            params.add(borrowStatus);
+        }
+
+        // 按借阅时间倒序
+        sql.append("ORDER BY br.borrow_time DESC");
+
+        GaarasonDataSource dataSource = borrowingRecordModel.getGaarasonDataSource();
+
+        try {
+            List<BorrowRecordVO> result = executeQuery(dataSource, sql.toString(), params);
+            
+            // 存入Redis缓存
+            redisUtils.save(cacheKey, result, CACHE_EXPIRE_TIME, TimeUnit.MINUTES);
+            
+            return result;
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("查询我的借阅记录失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 归还图书
+     */
+    @Override
+    public Boolean returnBook(Integer borrowId) {
+        if (borrowId == null) {
+            return false;
+        }
+
+        // 查询借阅记录
+        var record = borrowingRecordModel.baseQuery()
+                .where("borrow_id", borrowId)
+                .limit(1)
+                .first();
+
+        if (record == null) {
+            return false;
+        }
+
+        BorrowingRecord borrowingRecord = record.getEntity();
+
+        // 检查是否已经归还
+        if (borrowingRecord.getBorrowStatus() == 1) {
+            return false; // 已经归还
+        }
+
+        // 计算逾期罚金（如果逾期）
+        BigDecimal penalty = BigDecimal.ZERO;
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isAfter(borrowingRecord.getDueReturnTime())) {
+            // 逾期天数
+            long overdueDays = java.time.Duration.between(borrowingRecord.getDueReturnTime(), now).toDays();
+            
+            // 获取用户的角色代码，查询对应的罚金策略
+            var userRecord = userModel.baseQuery()
+                    .where("user_id", borrowingRecord.getUserId())
+                    .limit(1)
+                    .first();
+            
+            if (userRecord != null) {
+                Integer roleCode = userRecord.getEntity().getRoleCode();
+                
+                // 查询该角色的罚金策略
+                com.library.policies.model.BorrowStrategiesModel strategyModel = 
+                        new com.library.policies.model.BorrowStrategiesModel();
+                var strategyRecord = strategyModel.baseQuery()
+                        .where("role_code", roleCode)
+                        .limit(1)
+                        .first();
+                
+                if (strategyRecord != null) {
+                    var strategy = strategyRecord.getEntity();
+                    penalty = strategy.getDailyPenalty().multiply(new BigDecimal(overdueDays));
+                    
+                    // 不超过最高罚金上限
+                    if (penalty.compareTo(strategy.getMaxPenaltyLimit()) > 0) {
+                        penalty = strategy.getMaxPenaltyLimit();
+                    }
+                }
+            }
+        }
+
+        // 更新借阅记录
+        int rows = borrowingRecordModel.newQuery()
+                .where("borrow_id", borrowId)
+                .data("actual_return_time", now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+                .data("borrow_status", 1) // 1-已还
+                .data("penalty", penalty)
+                .data("payment_status", penalty.compareTo(BigDecimal.ZERO) > 0 ? 1 : 0) // 有罚金则未支付
+                .update();
+
+        // 更新成功后，清除相关缓存
+        if (rows > 0) {
+            redisUtils.delete(BORROW_RECORD_CACHE_PREFIX + borrowId);
+            redisUtils.delete(FINE_CACHE_PREFIX + borrowId);
+            // 清除该用户的所有借阅记录缓存
+            redisUtils.clearCache(MY_BORROW_CACHE_PREFIX + borrowingRecord.getUserId());
+        }
+
+        return rows > 0;
+    }
+
+    /**
+     * 续借图书
+     */
+    @Override
+    public Boolean renewBook(Integer borrowId) {
+        if (borrowId == null) {
+            return false;
+        }
+
+        // 查询借阅记录
+        var record = borrowingRecordModel.baseQuery()
+                .where("borrow_id", borrowId)
+                .limit(1)
+                .first();
+
+        if (record == null) {
+            return false;
+        }
+
+        BorrowingRecord borrowingRecord = record.getEntity();
+
+        // 只能续借借阅中或逾期未还的记录
+        if (borrowingRecord.getBorrowStatus() != 0 && borrowingRecord.getBorrowStatus() != 2) {
+            return false;
+        }
+
+        // TODO: 这里需要记录续借次数，当前简化处理，直接延长15天
+        // 实际应该查询续借次数表，检查是否已达到最大续借次数
+        LocalDateTime newDueTime = borrowingRecord.getDueReturnTime().plusDays(15);
+
+        int rows = borrowingRecordModel.newQuery()
+                .where("borrow_id", borrowId)
+                .data("due_return_time", newDueTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+                .update();
+
+        // 更新成功后，清除相关缓存
+        if (rows > 0) {
+            redisUtils.delete(BORROW_RECORD_CACHE_PREFIX + borrowId);
+            redisUtils.delete(FINE_CACHE_PREFIX + borrowId);
+            // 清除该用户的所有借阅记录缓存
+            redisUtils.clearCache(MY_BORROW_CACHE_PREFIX + borrowingRecord.getUserId());
+        }
+
+        return rows > 0;
+    }
+
+    /**
+     * 查看图书逾期应缴纳罚款
+     */
+    @Override
+    public java.math.BigDecimal getFineAmount(Integer borrowId) {
+        if (borrowId == null) {
+            return null;
+        }
+
+        // 先从Redis缓存中获取
+        String cacheKey = FINE_CACHE_PREFIX + borrowId;
+        Object cached = redisUtils.get(cacheKey);
+        if (cached instanceof BigDecimal) {
+            return (BigDecimal) cached;
+        }
+
+        // 查询借阅记录
+        var record = borrowingRecordModel.baseQuery()
+                .where("borrow_id", borrowId)
+                .limit(1)
+                .first();
+
+        if (record == null) {
+            return null;
+        }
+
+        BorrowingRecord borrowingRecord = record.getEntity();
+
+        // 如果已经归还，返回记录的罚金
+        if (borrowingRecord.getBorrowStatus() == 1) {
+            BigDecimal penalty = borrowingRecord.getPenalty();
+            // 存入缓存
+            redisUtils.save(cacheKey, penalty, CACHE_EXPIRE_TIME, TimeUnit.MINUTES);
+            return penalty;
+        }
+
+        // 如枟正在借阅中且未逾期，返回0
+        LocalDateTime now = LocalDateTime.now();
+        if (!now.isAfter(borrowingRecord.getDueReturnTime())) {
+            redisUtils.save(cacheKey, BigDecimal.ZERO, CACHE_EXPIRE_TIME, TimeUnit.MINUTES);
+            return BigDecimal.ZERO;
+        }
+
+        // 计算当前逾期罚金
+        long overdueDays = java.time.Duration.between(borrowingRecord.getDueReturnTime(), now).toDays();
+
+        // 获取用户角色的罚金策略
+        var userRecord = userModel.baseQuery()
+                .where("user_id", borrowingRecord.getUserId())
+                .limit(1)
+                .first();
+
+        if (userRecord == null) {
+            return null;
+        }
+
+        Integer roleCode = userRecord.getEntity().getRoleCode();
+
+        try {
+            com.library.policies.model.BorrowStrategiesModel strategyModel = 
+                    new com.library.policies.model.BorrowStrategiesModel();
+            var strategyRecord = strategyModel.baseQuery()
+                    .where("role_code", roleCode)
+                    .limit(1)
+                    .first();
+
+            if (strategyRecord == null) {
+                return null;
+            }
+
+            var strategy = strategyRecord.getEntity();
+            BigDecimal penalty = strategy.getDailyPenalty().multiply(new BigDecimal(overdueDays));
+
+            // 不超过最高罚金上限
+            if (penalty.compareTo(strategy.getMaxPenaltyLimit()) > 0) {
+                penalty = strategy.getMaxPenaltyLimit();
+            }
+
+            // 存入缓存（短期缓存，因为罚金会随时间变化）
+            redisUtils.save(cacheKey, penalty, 5, TimeUnit.MINUTES);
+
+            return penalty;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
     }
 }

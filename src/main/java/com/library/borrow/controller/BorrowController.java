@@ -8,12 +8,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * 借阅管理控制器
  */
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/borrow")
 public class BorrowController {
 
     @Autowired
@@ -84,7 +85,7 @@ public class BorrowController {
 
     /**
      * 缴费登记
-     * POST /api/asset-penalties/{id}/pay
+     * POST /api/borrow/asset-penalties/{id}/pay
      * 
      * @param id 借阅记录ID
      * @param penaltyAmount 缴纳的罚金金额
@@ -100,6 +101,98 @@ public class BorrowController {
             return Result.success("缴费成功");
         } else {
             return Result.error(500, "缴费失败，请检查记录状态或参数");
+        }
+    }
+
+    /**
+     * 借阅图书
+     * POST /api/borrow/borrow
+     * 
+     * @param userId 用户ID
+     * @param locationId 馆藏位置ID
+     * @return 操作结果
+     */
+    @PostMapping("/borrow")
+    public Result borrowBook(
+            @RequestParam Integer userId,
+            @RequestParam Integer locationId) {
+        
+        Boolean success = borrowService.borrowBook(userId, locationId);
+        if (success) {
+            return Result.success("借阅成功");
+        } else {
+            return Result.error(500, "借阅失败，请检查参数或库存状态");
+        }
+    }
+
+    /**
+     * 查看自己已借阅的图书（借阅记录）
+     * GET /api/borrow/borrowed/list
+     * 
+     * @param userId 用户ID
+     * @param borrowStatus 借阅状态（可选）0-借阅中, 1-已还, 2-逾期未还
+     * @return 借阅记录列表
+     */
+    @GetMapping("/borrowed/list")
+    public Result getMyBorrowedBooks(
+            @RequestParam Integer userId,
+            @RequestParam(required = false) Integer borrowStatus) {
+        
+        List<BorrowRecordVO> records = borrowService.getMyBorrowedBooks(userId, borrowStatus);
+        return Result.success(records);
+    }
+
+    /**
+     * 归还图书
+     * PUT /api/borrow/return
+     * 
+     * @param borrowId 借阅记录ID
+     * @return 操作结果
+     */
+    @PutMapping("/return")
+    public Result returnBook(@RequestParam Integer borrowId) {
+        
+        Boolean success = borrowService.returnBook(borrowId);
+        if (success) {
+            return Result.success("归还成功");
+        } else {
+            return Result.error(500, "归还失败，请检查记录状态");
+        }
+    }
+
+    /**
+     * 续借图书
+     * PUT /api/borrow/renew
+     * 
+     * @param borrowId 借阅记录ID
+     * @return 操作结果
+     */
+    @PutMapping("/renew")
+    public Result renewBook(@RequestParam Integer borrowId) {
+        
+        Boolean success = borrowService.renewBook(borrowId);
+        if (success) {
+            return Result.success("续借成功");
+        } else {
+            return Result.error(500, "续借失败，可能已达到最大续借次数");
+        }
+    }
+
+    /**
+     * 查看图书逾期应缴纳罚款
+     * GET /api/borrow/{borrow_id}/fine
+     * 
+     * @param borrowId 借阅记录ID
+     * @return 罚金金额
+     */
+    @GetMapping("/{borrow_id}/fine")
+    public Result getFineAmount(@PathVariable("borrow_id") Integer borrowId) {
+        
+        BigDecimal fineAmount = borrowService.getFineAmount(borrowId);
+        if (fineAmount != null) {
+            return Result.success(fineAmount);
+        } else {
+            return Result.error(404, "未找到借阅记录");
         }
     }
 }

@@ -5,11 +5,13 @@ import com.library.policies.entity.vo.BorrowingPrivilegeVO;
 import com.library.policies.entity.vo.OverdueFineVO;
 import com.library.policies.model.BorrowStrategiesModel;
 import com.library.policies.service.PoliciesService;
+import com.library.util.RedisUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 借阅策略服务实现类
@@ -20,11 +22,27 @@ public class PoliciesServiceImpl implements PoliciesService {
     @Autowired
     private BorrowStrategiesModel borrowStrategiesModel;
 
+    @Autowired
+    private RedisUtils redisUtils;
+
+    // Redis键前缀
+    private static final String PRIVILEGES_CACHE_KEY = "policies:privileges:all";
+    private static final String FINES_CACHE_KEY = "policies:fines:all";
+    private static final String STRATEGY_CACHE_PREFIX = "policies:strategy:id:";
+    private static final long CACHE_EXPIRE_TIME = 30; // 缓存过期时间（分钟）
+
     /**
      * 1.1 查看借阅权限设置（所有角色）
      */
     @Override
     public List<BorrowingPrivilegeVO> getBorrowingPrivileges() {
+        // 先从Redis缓存中获取
+        Object cached = redisUtils.get(PRIVILEGES_CACHE_KEY);
+        if (cached instanceof List) {
+            return (List<BorrowingPrivilegeVO>) cached;
+        }
+
+        // 缓存未命中，从数据库查询
         var records = borrowStrategiesModel.baseQuery().get();
 
         List<BorrowingPrivilegeVO> result = new ArrayList<>();
@@ -43,6 +61,9 @@ public class PoliciesServiceImpl implements PoliciesService {
                 result.add(vo);
             }
         }
+
+        // 存入Redis缓存
+        redisUtils.save(PRIVILEGES_CACHE_KEY, result, CACHE_EXPIRE_TIME, TimeUnit.MINUTES);
 
         return result;
     }
@@ -76,6 +97,13 @@ public class PoliciesServiceImpl implements PoliciesService {
                 .data("max_penalty_limit", privilegeVO.getMaxPenaltyLimit())
                 .update();
 
+        // 更新成功后，清除相关缓存
+        if (rows > 0) {
+            redisUtils.delete(PRIVILEGES_CACHE_KEY);
+            redisUtils.delete(FINES_CACHE_KEY);
+            redisUtils.delete(STRATEGY_CACHE_PREFIX + privilegeVO.getId());
+        }
+
         return rows > 0;
     }
 
@@ -94,6 +122,13 @@ public class PoliciesServiceImpl implements PoliciesService {
         entity.setMaxPenaltyLimit(privilegeVO.getMaxPenaltyLimit());
 
         int rows = borrowStrategiesModel.newQuery().data(entity).insert();
+        
+        // 新增成功后，清除相关缓存
+        if (rows > 0) {
+            redisUtils.delete(PRIVILEGES_CACHE_KEY);
+            redisUtils.delete(FINES_CACHE_KEY);
+        }
+        
         return rows > 0;
     }
 
@@ -102,6 +137,13 @@ public class PoliciesServiceImpl implements PoliciesService {
      */
     @Override
     public List<OverdueFineVO> getOverdueFines() {
+        // 先从Redis缓存中获取
+        Object cached = redisUtils.get(FINES_CACHE_KEY);
+        if (cached instanceof List) {
+            return (List<OverdueFineVO>) cached;
+        }
+
+        // 缓存未命中，从数据库查询
         var records = borrowStrategiesModel.baseQuery().get();
 
         List<OverdueFineVO> result = new ArrayList<>();
@@ -116,6 +158,9 @@ public class PoliciesServiceImpl implements PoliciesService {
                 result.add(vo);
             }
         }
+
+        // 存入Redis缓存
+        redisUtils.save(FINES_CACHE_KEY, result, CACHE_EXPIRE_TIME, TimeUnit.MINUTES);
 
         return result;
     }
@@ -143,6 +188,13 @@ public class PoliciesServiceImpl implements PoliciesService {
                 .data("daily_penalty", fineVO.getDailyPenalty())
                 .data("max_penalty_limit", fineVO.getMaxPenaltyLimit())
                 .update();
+
+        // 更新成功后，清除相关缓存
+        if (rows > 0) {
+            redisUtils.delete(PRIVILEGES_CACHE_KEY);
+            redisUtils.delete(FINES_CACHE_KEY);
+            redisUtils.delete(STRATEGY_CACHE_PREFIX + fineVO.getId());
+        }
 
         return rows > 0;
     }

@@ -44,10 +44,27 @@ public class RedisUtils {
         int saveTime = 30;
         redisTemplate.opsForValue().set(key, value, saveTime, TimeUnit.MINUTES);
     }
+    
+    //保存数据（自定义过期时间）
+    public void save(String key, Object value, long timeout, TimeUnit unit) {
+        redisTemplate.opsForValue().set(key, value, timeout, unit);
+    }
+    
     //提取数据
     public Object get(String key) {
         return redisTemplate.opsForValue().get(key);
     }
+    
+    //提取数据（带类型转换）
+    @SuppressWarnings("unchecked")
+    public <T> T get(String key, Class<T> clazz) {
+        Object value = redisTemplate.opsForValue().get(key);
+        if (value != null && clazz.isInstance(value)) {
+            return (T) value;
+        }
+        return null;
+    }
+    
     //删除数据
     public void delete(String key) {
         redisTemplate.delete(key);
