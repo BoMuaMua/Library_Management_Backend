@@ -53,12 +53,17 @@ public class UserServiceImpl implements UserService {
         // 4. 返回用户的角色权限代码
         return user.getSysRoleCode();
     }
-
+//TODO 注册用户接口仍旧存在问题，无法修复
     @Override
     public Boolean newUser(UserNewVO userNewVO) {
         LocalDateTime now = LocalDateTime.now();
         User user = new User();
-        user.setNickname(userNewVO.getNickname());
+        // 确保 nickname 不为 null，如果为空则使用默认值
+        String nickname = userNewVO.getNickname();
+        if (nickname == null || nickname.trim().isEmpty()) {
+            nickname = "用户" + System.currentTimeMillis();
+        }
+        user.setNickname(nickname);
         if(userNewVO.getPhone() != null && !userNewVO.getPhone().isEmpty()){
             user.setPhone(userNewVO.getPhone());
         }
@@ -73,7 +78,6 @@ public class UserServiceImpl implements UserService {
         user.setCreateTime(now);
 
         int rows = userModel.newQuery().data(user).insert();
-
 
         return rows > 0;
     }

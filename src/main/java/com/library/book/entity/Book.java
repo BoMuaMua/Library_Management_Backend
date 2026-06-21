@@ -1,5 +1,6 @@
 package com.library.book.entity;
 
+import gaarason.database.annotation.Column;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -19,6 +20,7 @@ public class Book implements Serializable {
     /**
      * 书籍ID (int(11))
      */
+    @Column(name = "book_id")
     private Integer bookId;
 
     /**
@@ -34,6 +36,7 @@ public class Book implements Serializable {
     /**
      * ISBN号 (varchar(17))
      */
+    @Column(name = "ISBN")
     private String isbn;
 
     /**
@@ -49,5 +52,6 @@ public class Book implements Serializable {
     /**
      * 总借阅次数/时间 (bigint(20))
      */
+    @Column(name = "total_borrowing_time")
     private Long totalBorrowingTime;
 }

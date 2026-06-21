@@ -11,6 +11,7 @@ import gaarason.database.appointment.OrderBy;
 import gaarason.database.appointment.Paginate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
@@ -101,6 +102,7 @@ public class BookServiceImpl implements BookService {
      * 1.4 图书入库
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Boolean stockIn(Integer bookId, String location) {
         var bookRecord = bookModel.baseQuery()
                 .where("book_id", bookId)
@@ -108,16 +110,25 @@ public class BookServiceImpl implements BookService {
                 .first();
 
         if (bookRecord == null) {
+            System.out.println("[stockIn] 图书不存在: bookId=" + bookId);
             return false;
         }
 
         Book existingBook = bookRecord.getEntity();
         Integer currentInventory = existingBook.getInventory() != null ? existingBook.getInventory() : 0;
 
+        // 使用 Map 传递更新数据，确保字段名与数据库列名一致
+        java.util.Map<String, Object> updateData = new java.util.HashMap<>();
+        updateData.put("inventory", currentInventory + 1);
+
+        System.out.println("[stockIn] 更新前: bookId=" + bookId + ", currentInventory=" + currentInventory + ", newInventory=" + (currentInventory + 1));
+        
         int rows = bookModel.newQuery()
                 .where("book_id", bookId)
-                .data("inventory", currentInventory + 1)
+                .data(updateData)
                 .update();
+
+        System.out.println("[stockIn] 更新后: rows=" + rows);
 
         return rows > 0;
     }

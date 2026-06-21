@@ -97,7 +97,8 @@ public class BookController {
         
         Boolean success = bookService.stockIn(bookId, location);
         if (success) {
-            return Result.success();
+            // 返回成功信息和最新的库存数量
+            return Result.success("图书入库成功");
         } else {
             return Result.error(500, "图书入库失败，图书不存在");
         }

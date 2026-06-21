@@ -1,5 +1,6 @@
 package com.library.book.entity;
 
+import gaarason.database.annotation.Column;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -20,15 +21,18 @@ public class BookTag implements Serializable {
     /**
      * 主键ID (int(11))
      */
+    @Column(name = "id")
     private Integer id;
 
     /**
      * 书籍ID，外键关联book表 (int(11))
      */
+    @Column(name = "book_id")
     private Integer bookId;
 
     /**
      * 标签名称 (varchar(100))
      */
+    @Column(name = "tag_name")
     private String tagName;
 }
