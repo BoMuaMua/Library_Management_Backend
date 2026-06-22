@@ -9,6 +9,7 @@ import com.library.user.service.UserService;
 import gaarason.database.appointment.OrderBy;
 import gaarason.database.appointment.Paginate;
 import gaarason.database.contract.eloquent.Builder;
+import gaarason.database.eloquent.GeneralModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -19,7 +20,10 @@ import java.time.LocalDateTime;
 public class UserServiceImpl implements UserService {
 
     @Autowired
-    private UserModel userModel;
+    private User.UserModel userModel;
+
+    @Autowired
+    private GeneralModel generalModel;
 
 
     @Override
@@ -27,6 +31,7 @@ public class UserServiceImpl implements UserService {
         // 1. 拿到未删除的基本查询构造器
         // 2. 按照创建时间倒序，如果时间相同则按用户ID正序（保证分页稳定）
         // 3. 执行 Gaarason 的分页查询
+        generalModel.newQuery().from("user").get().toMapList();
         return userModel.baseQuery()
                 .orderBy("status",OrderBy.ASC)
                 .orderBy("create_time", OrderBy.DESC)
@@ -57,6 +62,9 @@ public class UserServiceImpl implements UserService {
     @Override
     public Boolean newUser(UserNewVO userNewVO) {
         LocalDateTime now = LocalDateTime.now();
+
+        System.out.println(userNewVO.getUserCode());
+        System.out.println(userNewVO);
         User user = new User();
         // 确保 nickname 不为 null，如果为空则使用默认值
         String nickname = userNewVO.getNickname();
@@ -77,9 +85,7 @@ public class UserServiceImpl implements UserService {
         user.setIsDeleted(0);
         user.setCreateTime(now);
 
-        int rows = userModel.newQuery().data(user).insert();
-
-        return rows > 0;
+        return userModel.newRecord().fillEntity(user).save();
     }
 
     @Override

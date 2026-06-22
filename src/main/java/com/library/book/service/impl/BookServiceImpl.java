@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -40,7 +41,8 @@ public class BookServiceImpl implements BookService {
                                       String author, String isbn, String classification) {
         // 构建基础查询
         var query = bookModel.baseQuery();
-
+        HashMap<String, Object> map=new HashMap<>();
+        query.whereLike(map);
         // 添加筛选条件（模糊查询）
         if (StringUtils.hasText(title)) {
             query.where("title", "like", "%" + title + "%");

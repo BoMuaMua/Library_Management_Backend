@@ -2,7 +2,6 @@ package com.library.user.model;
 
 import com.library.user.entity.User;
 import gaarason.database.contract.connection.GaarasonDataSource;
-import gaarason.database.contract.eloquent.Builder;
 import gaarason.database.eloquent.Model;
 import gaarason.database.query.QueryBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +27,7 @@ public class UserModel extends Model<QueryBuilder<User,Integer>, User, Integer> 
         this.gaarasonDataSource = gaarasonDataSource;
     }
 
-    public Builder<?, User, Integer> baseQuery() {
+    public QueryBuilder<User, Integer> baseQuery() {
         return this.newQuery().where("is_deleted", 0);
     }
 
