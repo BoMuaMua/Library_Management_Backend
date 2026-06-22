@@ -121,15 +121,15 @@ public class PoliciesServiceImpl implements PoliciesService {
         entity.setDailyPenalty(privilegeVO.getDailyPenalty());
         entity.setMaxPenaltyLimit(privilegeVO.getMaxPenaltyLimit());
 
-        int rows = borrowStrategiesModel.newQuery().data(entity).insert();
+        Boolean success = borrowStrategiesModel.newRecord().fillEntity(entity).save();
         
         // 新增成功后，清除相关缓存
-        if (rows > 0) {
+        if (success) {
             redisUtils.delete(PRIVILEGES_CACHE_KEY);
             redisUtils.delete(FINES_CACHE_KEY);
         }
         
-        return rows > 0;
+        return success;
     }
 
     /**

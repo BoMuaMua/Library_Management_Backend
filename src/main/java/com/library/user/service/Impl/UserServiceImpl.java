@@ -20,18 +20,14 @@ import java.time.LocalDateTime;
 public class UserServiceImpl implements UserService {
 
     @Autowired
-    private User.UserModel userModel;
+    private UserModel userModel;
 
-    @Autowired
-    private GeneralModel generalModel;
+
 
 
     @Override
     public Paginate<User> getUserList(Integer page , Integer pageSize) {
-        // 1. 拿到未删除的基本查询构造器
-        // 2. 按照创建时间倒序，如果时间相同则按用户ID正序（保证分页稳定）
-        // 3. 执行 Gaarason 的分页查询
-        generalModel.newQuery().from("user").get().toMapList();
+
         return userModel.baseQuery()
                 .orderBy("status",OrderBy.ASC)
                 .orderBy("create_time", OrderBy.DESC)
@@ -58,7 +54,7 @@ public class UserServiceImpl implements UserService {
         // 4. 返回用户的角色权限代码
         return user.getSysRoleCode();
     }
-//TODO 注册用户接口仍旧存在问题，无法修复
+
     @Override
     public Boolean newUser(UserNewVO userNewVO) {
         LocalDateTime now = LocalDateTime.now();

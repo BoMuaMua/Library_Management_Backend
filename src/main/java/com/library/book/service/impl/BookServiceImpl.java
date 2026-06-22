@@ -96,8 +96,7 @@ public class BookServiceImpl implements BookService {
             book.setTotalBorrowingTime(0L);
         }
 
-        int rows = bookModel.newQuery().data(book).insert();
-        return rows > 0;
+        return bookModel.newRecord().fillEntity(book).save();
     }
 
     /**
@@ -282,8 +281,7 @@ public class BookServiceImpl implements BookService {
             BookImg bookImg = new BookImg();
             bookImg.setBookId(bookId);
             bookImg.setCoverImage(coverImageUrl);
-            int rows = bookImgModel.newQuery().data(bookImg).insert();
-            return rows > 0;
+            return bookImgModel.newRecord().fillEntity(bookImg).save();
         }
     }
 
@@ -355,9 +353,7 @@ public class BookServiceImpl implements BookService {
         BookTag bookTag = new BookTag();
         bookTag.setBookId(bookId);
         bookTag.setTagName(tagName);
-        int rows = bookTagModel.newQuery().data(bookTag).insert();
-
-        return rows > 0;
+        return bookTagModel.newRecord().fillEntity(bookTag).save();
     }
 
     /**
@@ -391,7 +387,7 @@ public class BookServiceImpl implements BookService {
                 BookTag bookTag = new BookTag();
                 bookTag.setBookId(bookId);
                 bookTag.setTagName(tagName.trim());
-                bookTagModel.newQuery().data(bookTag).insert();
+                bookTagModel.newRecord().fillEntity(bookTag).save();
             }
         }
 

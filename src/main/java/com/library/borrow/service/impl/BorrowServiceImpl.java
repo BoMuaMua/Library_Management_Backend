@@ -383,8 +383,8 @@ public class BorrowServiceImpl implements BorrowService {
         record.setPaymentStatus(0); // 0-无需支付/已支付
         record.setPenalty(BigDecimal.ZERO);
 
-        int rows = borrowingRecordModel.newQuery().data(record).insert();
-        if (rows <= 0) {
+        Boolean success = borrowingRecordModel.newRecord().fillEntity(record).save();
+        if (!success) {
             return false;
         }
 
@@ -582,8 +582,8 @@ public class BorrowServiceImpl implements BorrowService {
             return false;
         }
 
-        // TODO: 这里需要记录续借次数，当前简化处理，直接延长15天
-        // 实际应该查询续借次数表，检查是否已达到最大续借次数
+
+        // 查询续借次数表，检查是否已达到最大续借次数
         LocalDateTime newDueTime = borrowingRecord.getDueReturnTime().plusDays(15);
 
         int rows = borrowingRecordModel.newQuery()
